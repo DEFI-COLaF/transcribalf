@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row">
+
+    <!-- =========================
+         IMAGE (ZOOM ENABLED)
+    ========================== -->
+    <div class="col-md-6">
+
+        <h4>Transcription task — Chunk {{t.id}}</h4>
+
+        <div style="overflow:auto; max-height:85vh; border:1px solid #ddd; background:white;">
+            <img id="zoomImg"
+                 src="{{ url_for('static', filename=t.image) }}"
+                 style="width:100%; transition: transform 0.2s;">
+        </div>
+
+    </div>
+
+    <!-- =========================
+         INPUT PANEL
+    ========================== -->
+    <div class="col-md-6">
+
+        <h5>Transcription</h5>
+
+        <table class="table table-sm" id="annTable">
+            <thead>
+                <tr>
+                    <th>Survey ID</th>
+                    <th>Word form</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr>
+                    <td><input class="form-control" name="survey"></td>
+                    <td><input class="form-control" name="word"></td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <button class="btn btn-secondary btn-sm" onclick="addRow()">+ Add row</button>
+
+        <button class="btn btn-success w-100 mt-3" onclick="submitAll()">
+            Submit transcription
+        </button>
+
+        <a href="/task" class="btn btn-primary w-100 mt-2">
+            Next chunk
+        </a>
+
+        <hr>
+
+        <!-- =========================
+             ALF KEYBOARD
+        ========================== -->
+
+        <h5>ALF Keyboard</h5>
+        <div id="keyboard" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
+
+    </div>
+</div>
+
+<!-- =========================
+     ZOOM LOGIC
+========================== -->
+<script>
+let scale = 1;
+const img = document.getElementById("zoomImg");
+
+img.addEventListener("wheel", function(e) {
+    e.preventDefault();
+
+    if (e.deltaY < 0) {
+        scale += 0.1;
+    } else {
+        scale = Math.max(1, scale - 0.1);
+    }
+
+    img.style.transform = `scale(${scale})`;
+});
+</script>
+
+<!-- =========================
+     KEYBOARD LOGIC
+========================== -->
+<script>
+
+const characters = [
+    {character:"ꞓ"}, {character:"c̑"}, {character:"ç̑"}, {character:"ḓ"},
+    {character:"l̮"}, {character:"l̮̣"}, {character:"ṃ"}, {character:"n̮"},
+    {character:"ṅ"}, {character:"r̃"}, {character:"ȓ"}, {character:"ṙ"},
+    {character:"ṛ"}, {character:"r̥"}, {character:"ṣ"}, {character:"t̯"},
+    {character:"ẅ"}, {character:"ẓ"}, {character:"r̄"},
+
+    {character:"ḗ"}, {character:"ḕ"}, {character:"ĕ̀"}, {character:"ĕ́"},
+    {character:"ē"}, {character:"ā́"}, {character:"ā̀"}, {character:"ằ"},
+    {character:"ắ"}, {character:"ā"}, {character:"ă"}, {character:"ĕ"},
+    {character:"œ̄́"}, {character:"œ̄̀"}, {character:"œ̆́"}, {character:"œ̆̀"},
+    {character:"œ̆"}, {character:"œ̄"}, {character:"ṓ"}, {character:"ṑ"},
+    {character:"ŏ́"}, {character:"ŏ̀"}, {character:"ō"}, {character:"ŏ"},
+    {character:"ī́"}, {character:"ī̀"}, {character:"ĭ́"}, {character:"ĭ̀"},
+    {character:"ī"}, {character:"ĭ"}, {character:"ū́"}, {character:"ū̀"},
+    {character:"ŭ́"}, {character:"ŭ̀"}, {character:"ū"}, {character:"ŭ"},
+    {character:"ṓ̩"}, {character:"ā̩́"}, {character:"ė"}, {character:"ꭒ"},
+    {character:"ꭒ̀"}, {character:"ꭒ́"}, {character:"ꭒ̆"}, {character:"ĕ̩̀"},
+    {character:"ī̩́"}, {character:"ā̩̀"}, {character:"ằ̩"}, {character:"ḕ̩"},
+    {character:"ḗ̩"}, {character:"é̇"}, {character:"ó"}, {character:"aͤ"},
+    {character:"aͦ"}, {character:"eͥ"}, {character:"ꭒͦ"}, {character:"uͥ"},
+    {character:"aͤ̆"}, {character:"aͦ̄"}, {character:"aͤ̀"}, {character:"aͦ̀"}
+];
+
+let lastFocusedInput = null;
+
+document.addEventListener("focusin", e => {
+    if (e.target.tagName === "INPUT") {
+        lastFocusedInput = e.target;
+    }
+});
+
+const kb = document.getElementById("keyboard");
+
+characters.forEach(c => {
+    let btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-sm btn-outline-dark";
+    btn.innerText = c.character;
+
+    btn.onclick = () => {
+        if (lastFocusedInput) {
+            lastFocusedInput.value += c.character;
+            lastFocusedInput.focus();
+        }
+    };
+
+    kb.appendChild(btn);
+});
+</script>
+
+<!-- =========================
+     TABLE LOGIC
+========================== -->
+<script>
+
+function addRow() {
+    let table = document.querySelector("#annTable tbody");
+    let row = table.rows[0].cloneNode(true);
+
+    row.querySelectorAll("input").forEach(i => i.value = "");
+    table.appendChild(row);
+}
+
+function removeRow(btn) {
+    let row = btn.closest("tr");
+    if (document.querySelectorAll("#annTable tbody tr").length > 1) {
+        row.remove();
+    }
+}
+
+function submitAll() {
+    let rows = document.querySelectorAll("#annTable tbody tr");
+
+    rows.forEach(r => {
+        let survey = r.querySelector("input[name='survey']").value;
+        let word = r.querySelector("input[name='word']").value;
+
+        if (survey && word) {
+            fetch("/add/{{t.id}}", {
+                method: "POST",
+                headers: {"Content-Type": "application/x-www-form-urlencoded"},
+                body: `survey_id=${encodeURIComponent(survey)}&word=${encodeURIComponent(word)}`
+            });
+        }
+    });
+
+    alert("Transcription submitted!");
+}
+
+</script>
+
+{% endblock %}

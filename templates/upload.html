@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3>Upload ALF Map</h3>
+
+<form method="post" enctype="multipart/form-data">
+
+    <input type="file" name="img" class="form-control mb-2">
+
+    <button class="btn btn-warning">
+        Upload & Split 
+    </button>
+
+</form>
+
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row">
+
+    <!-- =========================
+         IMAGE
+    ========================== -->
+    <div class="col-md-6">
+
+        <h4>Review chunk {{t.id}}</h4>
+
+        <img src="{{ url_for('static', filename=t.image) }}" class="img-fluid border">
+
+    </div>
+
+    <!-- =========================
+         REVIEW TABLE
+    ========================== -->
+    <div class="col-md-6">
+
+        <h5>Review annotations</h5>
+
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Survey ID</th>
+                    <th>Word form</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for a in annotations %}
+                <tr>
+                    <td>
+                        <input class="form-control" value="{{a['survey_id']}}">
+                    </td>
+
+                    <td>
+                        <input class="form-control" value="{{a['word_form']}}">
+                    </td>
+
+                    <td>
+                        <button class="btn btn-success btn-sm">
+                            Validate
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+
+            </tbody>
+        </table>
+
+        <button class="btn btn-primary w-100">
+            Confirm review
+        </button>
+
+        <a href="/review" class="btn btn-secondary w-100 mt-2">
+            Next review task
+        </a>
+
+    </div>
+</div>
+
+{% endblock %}

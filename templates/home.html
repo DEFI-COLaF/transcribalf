@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container text-center">
+
+    <!-- =========================
+         TITRE
+    ========================== -->
+    <div class="mb-4">
+        <h1>TranscriptALF</h1>
+        <p class="lead">
+            Plateforme collaborative de transcription des cartes de l’Atlas Linguistique de la France (ALF)
+        </p>
+    </div>
+
+    <!-- =========================
+         PRESENTATION
+    ========================== -->
+    <div class="card mb-4">
+        <div class="card-body text-center">
+
+            <p>
+                Cette plateforme vise à permettre l’annotation collaborative d’une sélection de cartes
+                de l’Atlas Linguistique de la France (ALF).
+            </p>
+
+            <p>
+                L’objectif est de comparer ces données avec le corpus de la
+                <a href="https://inria.hal.science/hal-05636682v1/">
+                    <em>Parabole de l’enfant prodigue</em>
+                </a>,
+                développé dans le cadre du projet
+                <a href="https://colaf.huma-num.fr/">COLaF</a>.
+            </p>
+
+        </div>
+    </div>
+
+    <!-- =========================
+         COMMENT PARTICIPER
+    ========================== -->
+    <div class="card mb-4">
+        <div class="card-body text-center">
+
+            <h3>Comment contribuer</h3>
+
+            <ol style="display:inline-block; text-align:left;">
+                <li>Accédez à la section <strong>Transcrire</strong></li>
+                <li>Renseignez l’identifiant de l’enquête et les formes transcrites</li>
+                <li>Validez vos entrées puis passez au fragment suivant</li>
+                <li>Les utilisateurs inscrits peuvent accéder à la <strong>Relecture</strong></li>
+            </ol>
+
+        </div>
+    </div>
+
+    <!-- =========================
+         REMERCIEMENTS
+    ========================== -->
+    <div class="mb-4">
+
+        <h4>Merci pour votre contribution</h4>
+
+        <p>
+            Votre participation contribue à la recherche en linguistique,
+            aux humanités numériques et à la constitution de corpus ouverts.
+        </p>
+
+    </div>
+
+    <!-- =========================
+         CONTACT
+    ========================== -->
+    <div class="card mb-4">
+        <div class="card-body text-center">
+
+            <h3>Contact</h3>
+
+            <p>
+                juliette.janes@inria.fr
+            </p>
+
+        </div>
+    </div>
+
+    <!-- =========================
+         LOGOS
+    ========================== -->
+    <div class="d-flex justify-content-center align-items-center flex-wrap gap-4">
+
+        <a href="https://colaf.huma-num.fr/" target="_blank">
+            <img src="/static/img/colaf_logo.png"
+                 alt="COLaF"
+                 style="max-height:70px;">
+        </a>
+
+        <a href="https://almanach.inria.fr/" target="_blank">
+            <img src="/static/img/almanach_logo.png"
+                 alt="ALMAnaCH"
+                 style="max-height:70px;">
+        </a>
+
+        <a href="https://www.inria.fr/fr" target="_blank">
+            <img src="/static/img/inria_logo.png"
+                 alt="Inria"
+                 style="max-height:70px;">
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}

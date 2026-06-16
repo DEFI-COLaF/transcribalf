@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>ALF Platform</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body { background: #f8f9fa; }
+
+        .chunk-img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+        }
+
+        .annotation-box {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+
+    <div class="container-fluid">
+
+        <a class="navbar-brand" href="/">ALF</a>
+
+        <button class="navbar-toggler" type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+
+            <ul class="navbar-nav me-auto">
+
+                {% set uid = session.get("uid") %}
+                {% set is_admin = session.get("admin") %}
+                {% set is_logged_in = uid and not uid.startswith("anon_") %}
+                {% set is_anon = uid and uid.startswith("anon_") %}
+
+                {% if is_admin %}
+
+                    <!-- ADMIN MENU -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/upload">Upload</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/evolution">Evolution</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">Logout</a>
+                    </li>
+
+                {% elif is_logged_in %}
+
+                    <!-- REGISTERED USER -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/task">Transcribe</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="/review">Review</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">Logout</a>
+                    </li>
+
+                {% else %}
+
+                    <!-- ANONYMOUS USER -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/task">Transcribe</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="/review">Review</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="/login">Login</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="/register">Register</a>
+                    </li>
+
+                {% endif %}
+
+            </ul>
+
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-4">
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for msg in messages %}
+                <div class="alert alert-success">
+                    {{ msg }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

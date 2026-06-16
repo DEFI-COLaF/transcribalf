@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3>Admin dashboard — evolution</h3>
+
+<hr>
+
+<table class="table table-bordered table-hover">
+
+    <thead>
+        <tr>
+            <th>Map</th>
+            <th>Chunks</th>
+            <th>Transcribed</th>
+            <th>Reviewed</th>
+            <th>Export</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+    {% for m in maps %}
+
+        <tr>
+
+            <td>
+                {{ m.filename }}
+            </td>
+
+            <td>
+                {{ m.total_chunks }}
+            </td>
+
+            <td>
+                {{ m.transcribed_chunks }}
+                ({{ m.transcribed_percent }}%)
+            </td>
+
+            <td>
+                {{ m.reviewed_chunks }}
+                ({{ m.reviewed_percent }}%)
+            </td>
+
+            <td>
+                <a
+                    href="/export_csv/{{ m.id }}"
+                    class="btn btn-success btn-sm">
+                    CSV
+                </a>
+            </td>
+
+            <td>
+                <button
+                    class="btn btn-primary btn-sm"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#map{{m.id}}">
+                    Show
+                </button>
+            </td>
+
+        </tr>
+
+        <tr>
+
+            <td colspan="6">
+
+                <div
+                    class="collapse"
+                    id="map{{m.id}}">
+
+                    <table class="table table-sm table-striped">
+
+                        <thead>
+                            <tr>
+                                <th>Chunk</th>
+                                <th>Survey ID</th>
+                                <th>Transcription</th>
+                                <th>Correction</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                        {% for d in m.details %}
+
+                            <tr>
+
+                                <td>
+                                    {{ d.idx }}
+                                </td>
+
+                                <td>
+                                    {{ d.survey_id }}
+                                </td>
+
+                                <td>
+                                    {{ d.word_form }}
+                                </td>
+
+                                <td>
+                                    {{ d.corrected_word }}
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </td>
+
+        </tr>
+
+    {% endfor %}
+
+    </tbody>
+
+</table>
+
+{% endblock %}
