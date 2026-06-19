@@ -47,7 +47,7 @@
 
         <button class="btn btn-secondary btn-sm" onclick="addRow()">+ Add row</button>
 
-        <button class="btn btn-success w-100 mt-3" onclick="submitAll()">
+        <button id="submitBtn" class="btn btn-success w-100 mt-3" onclick="submitAll()">
             Submit transcription
         </button>
 
@@ -61,8 +61,105 @@
              ALF KEYBOARD
         ========================== -->
 
+        <style>
+            .alf-keyboard {
+                background: #fff;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 12px;
+            }
+
+            .alf-keyboard-toolbar {
+                display: grid;
+                gap: 8px;
+                grid-template-columns: 1fr auto;
+            }
+
+            .alf-keyboard-group {
+                margin-top: 12px;
+            }
+
+            .alf-keyboard-title {
+                color: #555;
+                font-size: 0.85rem;
+                font-weight: 700;
+                margin-bottom: 6px;
+                text-transform: uppercase;
+            }
+
+            .alf-keyboard-keys {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .alf-key {
+                min-width: 42px;
+                min-height: 38px;
+                font-size: 1.15rem;
+                line-height: 1;
+            }
+
+            .alf-custom-tools {
+                display: grid;
+                gap: 8px;
+                grid-template-columns: 1fr auto auto;
+                margin-top: 12px;
+            }
+
+            .alf-request-tools {
+                display: grid;
+                gap: 8px;
+                grid-template-columns: 90px 1fr auto;
+                margin-top: 8px;
+            }
+
+            .alf-status {
+                color: #666;
+                font-size: 0.85rem;
+                min-height: 1.2rem;
+            }
+        </style>
+
         <h5>ALF Keyboard</h5>
-        <div id="keyboard" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
+        <div class="alf-keyboard">
+            <div class="alf-keyboard-toolbar">
+                <input id="keyboardSearch"
+                       class="form-control form-control-sm"
+                       placeholder="Search a sign, e.g. a, r, nasal, breve">
+                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearKeyboardSearch()">
+                    Clear
+                </button>
+            </div>
+
+            <div id="keyboard"></div>
+
+            <div class="alf-custom-tools">
+                <input id="customCharacter"
+                       class="form-control form-control-sm"
+                       placeholder="Add a sign to my keyboard">
+                <button class="btn btn-outline-dark btn-sm" type="button" onclick="addCustomCharacter()">
+                    Add
+                </button>
+                <button class="btn btn-outline-danger btn-sm" type="button" onclick="clearCustomCharacters()">
+                    Reset mine
+                </button>
+            </div>
+
+            <div class="alf-request-tools">
+                <input id="requestCharacter"
+                       class="form-control form-control-sm"
+                       placeholder="Sign">
+                <input id="requestNote"
+                       class="form-control form-control-sm"
+                       placeholder="Ask for a shared keyboard addition, optional note">
+                <button class="btn btn-outline-primary btn-sm" type="button" onclick="requestKeyboardCharacter()">
+                    Ask
+                </button>
+            </div>
+
+            <div id="keyboardStatus" class="alf-status mt-2"></div>
+        </div>
 
     </div>
 </div>
@@ -92,55 +189,216 @@ img.addEventListener("wheel", function(e) {
 ========================== -->
 <script>
 
-const characters = [
-    {character:"ꞓ"}, {character:"c̑"}, {character:"ç̑"}, {character:"ḓ"},
-    {character:"l̮"}, {character:"l̮̣"}, {character:"ṃ"}, {character:"n̮"},
-    {character:"ṅ"}, {character:"r̃"}, {character:"ȓ"}, {character:"ṙ"},
-    {character:"ṛ"}, {character:"r̥"}, {character:"ṣ"}, {character:"t̯"},
-    {character:"ẅ"}, {character:"ẓ"}, {character:"r̄"},
-
-    {character:"ḗ"}, {character:"ḕ"}, {character:"ĕ̀"}, {character:"ĕ́"},
-    {character:"ē"}, {character:"ā́"}, {character:"ā̀"}, {character:"ằ"},
-    {character:"ắ"}, {character:"ā"}, {character:"ă"}, {character:"ĕ"},
-    {character:"œ̄́"}, {character:"œ̄̀"}, {character:"œ̆́"}, {character:"œ̆̀"},
-    {character:"œ̆"}, {character:"œ̄"}, {character:"ṓ"}, {character:"ṑ"},
-    {character:"ŏ́"}, {character:"ŏ̀"}, {character:"ō"}, {character:"ŏ"},
-    {character:"ī́"}, {character:"ī̀"}, {character:"ĭ́"}, {character:"ĭ̀"},
-    {character:"ī"}, {character:"ĭ"}, {character:"ū́"}, {character:"ū̀"},
-    {character:"ŭ́"}, {character:"ŭ̀"}, {character:"ū"}, {character:"ŭ"},
-    {character:"ṓ̩"}, {character:"ā̩́"}, {character:"ė"}, {character:"ꭒ"},
-    {character:"ꭒ̀"}, {character:"ꭒ́"}, {character:"ꭒ̆"}, {character:"ĕ̩̀"},
-    {character:"ī̩́"}, {character:"ā̩̀"}, {character:"ằ̩"}, {character:"ḕ̩"},
-    {character:"ḗ̩"}, {character:"é̇"}, {character:"ó"}, {character:"aͤ"},
-    {character:"aͦ"}, {character:"eͥ"}, {character:"ꭒͦ"}, {character:"uͥ"},
-    {character:"aͤ̆"}, {character:"aͦ̄"}, {character:"aͤ̀"}, {character:"aͦ̀"}
+const keyboardGroups = [
+    {
+        label: "Consonants",
+        items: [
+            ["ꞓ", "open c consonant"], ["c̑", "c circumflex"], ["ç̑", "cedilla c circumflex"],
+            ["ḓ", "d with circumflex below"], ["l̮", "l below"], ["l̮̣", "l below dot"],
+            ["ṃ", "m dot below"], ["n̮", "n below"], ["ṅ", "n dot above"],
+            ["r̃", "r tilde"], ["ȓ", "r inverted breve"], ["ṙ", "r dot above"],
+            ["ṛ", "r dot below"], ["r̥", "r ring below"], ["ṣ", "s dot below"],
+            ["t̯", "t inverted breve below"], ["ẅ", "w diaeresis"], ["ẓ", "z dot below"],
+            ["r̄", "r macron"]
+        ]
+    },
+    {
+        label: "A and E vowels",
+        items: [
+            ["ā", "a macron"], ["ă", "a breve"], ["ā́", "a macron acute"],
+            ["ā̀", "a macron grave"], ["ằ", "a breve grave"], ["ắ", "a breve acute"],
+            ["ĕ", "e breve"], ["ē", "e macron"], ["ĕ̀", "e breve grave"],
+            ["ĕ́", "e breve acute"], ["ḕ", "e macron grave"], ["ḗ", "e macron acute"],
+            ["ė", "e dot above"], ["é̇", "e acute dot"], ["aͤ", "a superscript e"],
+            ["aͤ̆", "a superscript e breve"], ["aͤ̀", "a superscript e grave"]
+        ]
+    },
+    {
+        label: "O, I, U vowels",
+        items: [
+            ["ō", "o macron"], ["ŏ", "o breve"], ["ŏ́", "o breve acute"],
+            ["ŏ̀", "o breve grave"], ["ṓ", "o macron acute"], ["ṑ", "o macron grave"],
+            ["ó", "o acute"], ["aͦ", "a superscript o"], ["aͦ̄", "a superscript o macron"],
+            ["aͦ̀", "a superscript o grave"], ["ī", "i macron"], ["ĭ", "i breve"],
+            ["ī́", "i macron acute"], ["ī̀", "i macron grave"], ["ĭ́", "i breve acute"],
+            ["ĭ̀", "i breve grave"], ["ū", "u macron"], ["ŭ", "u breve"],
+            ["ū́", "u macron acute"], ["ū̀", "u macron grave"], ["ŭ́", "u breve acute"],
+            ["ŭ̀", "u breve grave"], ["eͥ", "e superscript i"], ["uͥ", "u superscript i"]
+        ]
+    },
+    {
+        label: "OE and vocalic signs",
+        items: [
+            ["œ̄", "oe macron"], ["œ̆", "oe breve"], ["œ̄́", "oe macron acute"],
+            ["œ̄̀", "oe macron grave"], ["œ̆́", "oe breve acute"], ["œ̆̀", "oe breve grave"],
+            ["ꭒ", "open oe"], ["ꭒ̀", "open oe grave"], ["ꭒ́", "open oe acute"],
+            ["ꭒ̆", "open oe breve"], ["ꭒͦ", "open oe superscript o"], ["ṓ̩", "syllabic o acute"],
+            ["ā̩́", "syllabic a macron acute"], ["ā̩̀", "syllabic a macron grave"],
+            ["ằ̩", "syllabic a breve grave"], ["ĕ̩̀", "syllabic e breve grave"],
+            ["ī̩́", "syllabic i macron acute"], ["ḕ̩", "syllabic e macron grave"],
+            ["ḗ̩", "syllabic e macron acute"]
+        ]
+    }
 ];
+
+const CUSTOM_KEY = "transcriptalf.customKeyboardCharacters";
+const csrfToken = "{{ csrf_token() }}";
 
 let lastFocusedInput = null;
 
 document.addEventListener("focusin", e => {
-    if (e.target.tagName === "INPUT") {
+    if (e.target.tagName === "INPUT" && !e.target.id.startsWith("keyboard") && !e.target.id.startsWith("custom") && !e.target.id.startsWith("request")) {
         lastFocusedInput = e.target;
     }
 });
 
 const kb = document.getElementById("keyboard");
+const keyboardSearch = document.getElementById("keyboardSearch");
+const keyboardStatus = document.getElementById("keyboardStatus");
 
-characters.forEach(c => {
-    let btn = document.createElement("button");
+keyboardSearch.addEventListener("input", renderKeyboard);
+
+function getCustomCharacters() {
+    try {
+        return JSON.parse(localStorage.getItem(CUSTOM_KEY)) || [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveCustomCharacters(characters) {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(characters));
+}
+
+function insertCharacter(character) {
+    if (!lastFocusedInput) {
+        lastFocusedInput = document.querySelector("input[name='word']");
+    }
+
+    if (!lastFocusedInput) {
+        return;
+    }
+
+    const start = lastFocusedInput.selectionStart ?? lastFocusedInput.value.length;
+    const end = lastFocusedInput.selectionEnd ?? lastFocusedInput.value.length;
+    lastFocusedInput.value = lastFocusedInput.value.slice(0, start) + character + lastFocusedInput.value.slice(end);
+    lastFocusedInput.selectionStart = start + character.length;
+    lastFocusedInput.selectionEnd = start + character.length;
+    lastFocusedInput.focus();
+}
+
+function createKey(character, title) {
+    const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "btn btn-sm btn-outline-dark";
-    btn.innerText = c.character;
+    btn.className = "btn btn-outline-dark alf-key";
+    btn.innerText = character;
+    btn.title = title || character;
+    btn.onclick = () => insertCharacter(character);
+    return btn;
+}
 
-    btn.onclick = () => {
-        if (lastFocusedInput) {
-            lastFocusedInput.value += c.character;
-            lastFocusedInput.focus();
-        }
-    };
+function renderGroup(label, items, query) {
+    const filtered = items.filter(([character, title]) => {
+        const text = `${character} ${title}`.toLowerCase();
+        return !query || text.includes(query);
+    });
 
-    kb.appendChild(btn);
-});
+    if (!filtered.length) {
+        return;
+    }
+
+    const group = document.createElement("div");
+    group.className = "alf-keyboard-group";
+
+    const title = document.createElement("div");
+    title.className = "alf-keyboard-title";
+    title.innerText = label;
+    group.appendChild(title);
+
+    const keys = document.createElement("div");
+    keys.className = "alf-keyboard-keys";
+
+    filtered.forEach(([character, title]) => keys.appendChild(createKey(character, title)));
+
+    group.appendChild(keys);
+    kb.appendChild(group);
+}
+
+function renderKeyboard() {
+    const query = keyboardSearch.value.trim().toLowerCase();
+    kb.innerHTML = "";
+
+    keyboardGroups.forEach(group => renderGroup(group.label, group.items, query));
+
+    const customItems = getCustomCharacters().map(character => [character, "custom sign"]);
+    renderGroup("My signs", customItems, query);
+
+    if (!kb.children.length) {
+        kb.innerHTML = "<p class=\"text-muted mb-0 mt-3\">No sign found. Add it below or ask for it to be added to the shared keyboard.</p>";
+    }
+}
+
+function clearKeyboardSearch() {
+    keyboardSearch.value = "";
+    renderKeyboard();
+}
+
+function addCustomCharacter() {
+    const input = document.getElementById("customCharacter");
+    const character = input.value.trim();
+
+    if (!character) {
+        return;
+    }
+
+    const characters = getCustomCharacters();
+
+    if (!characters.includes(character)) {
+        characters.push(character);
+        saveCustomCharacters(characters);
+    }
+
+    input.value = "";
+    keyboardStatus.innerText = `${character} added to your keyboard on this browser.`;
+    renderKeyboard();
+}
+
+function clearCustomCharacters() {
+    localStorage.removeItem(CUSTOM_KEY);
+    keyboardStatus.innerText = "Your custom signs were cleared on this browser.";
+    renderKeyboard();
+}
+
+async function requestKeyboardCharacter() {
+    const characterInput = document.getElementById("requestCharacter");
+    const noteInput = document.getElementById("requestNote");
+    const character = characterInput.value.trim();
+    const note = noteInput.value.trim();
+
+    if (!character) {
+        keyboardStatus.innerText = "Add the missing sign before sending a request.";
+        return;
+    }
+
+    const response = await fetch("/keyboard/request", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken
+        },
+        body: JSON.stringify({character, note})
+    });
+
+    if (response.ok) {
+        characterInput.value = "";
+        noteInput.value = "";
+        keyboardStatus.innerText = "Request saved. An admin can review it for the shared keyboard.";
+    } else {
+        keyboardStatus.innerText = "The request could not be saved.";
+    }
+}
+
+renderKeyboard();
 </script>
 
 <!-- =========================
@@ -163,23 +421,42 @@ function removeRow(btn) {
     }
 }
 
-function submitAll() {
+async function submitAll() {
     let rows = document.querySelectorAll("#annTable tbody tr");
+    let entries = [];
 
     rows.forEach(r => {
         let survey = r.querySelector("input[name='survey']").value;
         let word = r.querySelector("input[name='word']").value;
 
         if (survey && word) {
-            fetch("/add/{{t.id}}", {
-                method: "POST",
-                headers: {"Content-Type": "application/x-www-form-urlencoded"},
-                body: `survey_id=${encodeURIComponent(survey)}&word=${encodeURIComponent(word)}`
-            });
+            entries.push({survey_id: survey, word: word});
         }
     });
 
-    alert("Transcription submitted!");
+    if (!entries.length) {
+        alert("Please add at least one complete row.");
+        return;
+    }
+
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+
+    const response = await fetch("/add_many/{{t.id}}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken
+        },
+        body: JSON.stringify(entries)
+    });
+
+    if (response.ok) {
+        window.location = "/task";
+    } else {
+        btn.disabled = false;
+        alert("The transcription could not be saved.");
+    }
 }
 
 </script>

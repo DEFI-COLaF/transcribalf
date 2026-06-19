@@ -8,6 +8,8 @@
 
         <form method="POST" action="/login">
 
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
     <input name="username" class="form-control" placeholder="username">
 
     <input name="password" type="password" class="form-control" placeholder="password">

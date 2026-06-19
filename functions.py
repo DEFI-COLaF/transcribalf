@@ -4,16 +4,19 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from db import get_db
 
 
+CHUNK_DIR = os.environ.get("TRANSCRIPTALF_CHUNK_DIR", "static/chunks")
+CHUNK_URL_PREFIX = os.environ.get("TRANSCRIPTALF_CHUNK_URL_PREFIX", "chunks")
+
 
 # =========================
-# ✂️ CHUNKING (25 GRID)
+# ✂️ CHUNKING
 # =========================
 def split_image(path, map_id):
 
     img = Image.open(path)
     w, h = img.size
 
-    os.makedirs("static/chunks", exist_ok=True)
+    os.makedirs(CHUNK_DIR, exist_ok=True)
 
     cols = 10
     rows = 5
@@ -46,14 +49,14 @@ def split_image(path, map_id):
             chunk = img.crop(box)
 
             fname = f"{map_id}_{idx}.png"
-            out = os.path.join("static/chunks", fname)
+            out = os.path.join(CHUNK_DIR, fname)
 
             chunk.save(out)
 
             cur.execute("""
                 INSERT INTO chunks(map_id, idx, image)
                 VALUES (?,?,?)
-            """, (map_id, idx, f"chunks/{fname}"))
+            """, (map_id, idx, f"{CHUNK_URL_PREFIX}/{fname}"))
 
             idx += 1
 
@@ -68,8 +71,22 @@ def get_next_transcription_task(user_id):
     conn = get_db()
 
     task = conn.execute("""
+        SELECT *
+        FROM chunks
+        WHERE transcriber_id = ?
+        AND status = 'assigned'
+        ORDER BY id ASC
+        LIMIT 1
+    """, (user_id,)).fetchone()
+
+    if task:
+        conn.close()
+        return task
+
+    task = conn.execute("""
         UPDATE chunks
-        SET transcriber_id = ?
+        SET transcriber_id = ?,
+            status = 'assigned'
         WHERE id = (
             SELECT id
             FROM chunks
@@ -98,6 +115,40 @@ def add_transcription(chunk_id, user_id, survey_id, word_form):
     conn.commit()
     conn.close()
 
+
+def add_transcriptions(chunk_id, user_id, entries):
+    conn = get_db()
+
+    chunk = conn.execute("""
+        SELECT id
+        FROM chunks
+        WHERE id = ?
+        AND transcriber_id = ?
+        AND status = 'assigned'
+    """, (chunk_id, user_id)).fetchone()
+
+    if not chunk:
+        conn.close()
+        raise ValueError("chunk is not assigned to this transcriber")
+
+    conn.executemany("""
+        INSERT INTO transcriptions(chunk_id, user_id, survey_id, word_form)
+        VALUES (?,?,?,?)
+    """, [
+        (chunk_id, user_id, entry["survey_id"], entry["word"])
+        for entry in entries
+    ])
+
+    conn.execute("""
+        UPDATE chunks
+        SET status = 'done'
+        WHERE id = ?
+        AND transcriber_id = ?
+    """, (chunk_id, user_id))
+
+    conn.commit()
+    conn.close()
+
 def get_annotations(chunk_id):
     conn = get_db()
     rows = conn.execute("""
@@ -120,19 +171,34 @@ def assign_review_task(user_id):
         return None
 
     task = conn.execute("""
+        SELECT *
+        FROM chunks
+        WHERE reviewer_id = ?
+        AND status = 'done'
+        ORDER BY id ASC
+        LIMIT 1
+    """, (user_id,)).fetchone()
+
+    if task:
+        conn.close()
+        return task
+
+    task = conn.execute("""
         UPDATE chunks
         SET reviewer_id = ?
         WHERE id = (
             SELECT id
             FROM chunks
-            WHERE transcriber_id IS NOT NULL
+            WHERE status = 'done'
+            AND transcriber_id IS NOT NULL
             AND reviewer_id IS NULL
+            AND transcriber_id != ?
             ORDER BY id ASC
             LIMIT 1
         )
         AND reviewer_id IS NULL
         RETURNING *
-    """, (user_id,)).fetchone()
+    """, (user_id, user_id)).fetchone()
 
     conn.commit()
     conn.close()
@@ -167,6 +233,52 @@ def add_review(chunk_id, user_id, survey_id, original_word, corrected_word):
         corrected_word,
         user_id
     ))
+
+    conn.commit()
+    conn.close()
+
+
+def add_reviews(chunk_id, user_id, entries):
+    conn = get_db()
+
+    chunk = conn.execute("""
+        SELECT id
+        FROM chunks
+        WHERE id = ?
+        AND reviewer_id = ?
+        AND status = 'done'
+    """, (chunk_id, user_id)).fetchone()
+
+    if not chunk:
+        conn.close()
+        raise ValueError("chunk is not assigned to this reviewer")
+
+    conn.executemany("""
+        INSERT INTO review_entries(
+            chunk_id,
+            survey_id,
+            original_word,
+            corrected_word,
+            reviewer_id
+        )
+        VALUES (?,?,?,?,?)
+    """, [
+        (
+            chunk_id,
+            entry["survey_id"],
+            entry["original_word"],
+            entry["corrected_word"],
+            user_id
+        )
+        for entry in entries
+    ])
+
+    conn.execute("""
+        UPDATE chunks
+        SET status = 'reviewed'
+        WHERE id = ?
+        AND reviewer_id = ?
+    """, (chunk_id, user_id))
 
     conn.commit()
     conn.close()
@@ -249,9 +361,9 @@ def get_evolution_stats():
             LEFT JOIN transcriptions t
                 ON t.chunk_id = c.id
 
-            -- FIX: was "reviews", correct table is "review_entries"
             LEFT JOIN review_entries r
                 ON r.chunk_id = c.id
+                AND r.survey_id = t.survey_id
 
             WHERE c.map_id=?
 
@@ -329,6 +441,18 @@ def mark_chunk_done(chunk_id, user_id):
         WHERE id = ?
         AND transcriber_id = ?
     """, (chunk_id, user_id))
+
+    conn.commit()
+    conn.close()
+
+
+def add_keyboard_request(user_id, character, note=""):
+    conn = get_db()
+
+    conn.execute("""
+        INSERT INTO keyboard_requests(user_id, character, note)
+        VALUES (?,?,?)
+    """, (str(user_id), character, note))
 
     conn.commit()
     conn.close()

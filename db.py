@@ -1,6 +1,7 @@
+import os
 import sqlite3
 
-DB = "alf.db"
+DB = os.environ.get("TRANSCRIPTALF_DB", "alf.db")
 
 
 def get_db():
@@ -10,7 +11,7 @@ def get_db():
 
 
 def init_db():
-    conn = sqlite3.connect(DB)
+    conn = get_db()
     c = conn.cursor()
 
     # USERS
@@ -64,6 +65,17 @@ def init_db():
             original_word TEXT,
             corrected_word TEXT,
             reviewer_id INTEGER
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS keyboard_requests(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            character TEXT NOT NULL,
+            note TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 

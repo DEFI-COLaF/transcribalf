@@ -21,41 +21,43 @@
 
         <h5>Review annotations</h5>
 
-        <table class="table table-sm">
-            <thead>
-                <tr>
-                    <th>Survey ID</th>
-                    <th>Word form</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
+        <form method="POST" action="/review/{{t.id}}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
-            <tbody>
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Survey ID</th>
+                        <th>Original</th>
+                        <th>Correction</th>
+                    </tr>
+                </thead>
 
-                {% for a in annotations %}
-                <tr>
-                    <td>
-                        <input class="form-control" value="{{a['survey_id']}}">
-                    </td>
+                <tbody>
 
-                    <td>
-                        <input class="form-control" value="{{a['word_form']}}">
-                    </td>
+                    {% for a in annotations %}
+                    <tr>
+                        <td>
+                            <input name="survey_id" class="form-control" value="{{a['survey_id']}}" readonly>
+                        </td>
 
-                    <td>
-                        <button class="btn btn-success btn-sm">
-                            Validate
-                        </button>
-                    </td>
-                </tr>
-                {% endfor %}
+                        <td>
+                            <input name="original_word" class="form-control" value="{{a['word_form']}}" readonly>
+                        </td>
 
-            </tbody>
-        </table>
+                        <td>
+                            <input name="corrected_word" class="form-control" value="{{a['word_form']}}">
+                        </td>
+                    </tr>
+                    {% endfor %}
 
-        <button class="btn btn-primary w-100">
-            Confirm review
-        </button>
+                </tbody>
+            </table>
+
+            <button class="btn btn-primary w-100">
+                Confirm review
+            </button>
+        </form>
 
         <a href="/review" class="btn btn-secondary w-100 mt-2">
             Next review task

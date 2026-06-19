@@ -1,6 +1,8 @@
 import io
 import csv
 import os
+import secrets
+import sqlite3
 
 from flask import (
     Flask,
@@ -9,8 +11,11 @@ from flask import (
     redirect,
     session,
     flash,
-    Response
+    Response,
+    jsonify,
 )
+from PIL import Image, UnidentifiedImageError
+from werkzeug.utils import secure_filename
 
 import db
 import functions as fn
@@ -18,16 +23,77 @@ import uuid
 
 
 app = Flask(__name__)
-app.secret_key = "secret"
+
+if os.environ.get("FLASK_ENV") == "production" and not os.environ.get("FLASK_SECRET_KEY"):
+    raise RuntimeError("FLASK_SECRET_KEY must be set in production")
+
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("FLASK_ENV") == "production",
+)
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+
+
+def is_registered_user():
+    uid = session.get("uid")
+    return uid and not str(uid).startswith("anon_")
+
+
+def is_allowed_image(filename):
+    return os.path.splitext(filename.lower())[1] in ALLOWED_EXTENSIONS
+
+
+def csrf_token():
+    token = session.get("_csrf_token")
+
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+
+    return token
+
+
+def is_valid_csrf():
+    token = (
+        request.form.get("_csrf_token")
+        or request.headers.get("X-CSRFToken")
+    )
+    return token and token == session.get("_csrf_token")
+
+
+@app.context_processor
+def inject_csrf_token():
+    return {"csrf_token": csrf_token}
+
+
+def is_valid_password(password):
+    return len(password) >= 8
+
+
+def is_valid_image(path):
+    try:
+        with Image.open(path) as img:
+            img.verify()
+    except (UnidentifiedImageError, OSError):
+        return False
+
+    return True
 
 @app.before_request
 def ensure_anon_id():
 
     if "uid" not in session:
         session["uid"] = f"anon_{uuid.uuid4().hex[:12]}"
+
+    if request.method == "POST" and not is_valid_csrf():
+        if request.is_json:
+            return jsonify({"error": "invalid csrf token"}), 400
+        return "invalid csrf token", 400
 # =========================
 # 🏠 HOME
 # =========================
@@ -42,11 +108,24 @@ def home():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        fn.create_user(
-            request.form["username"],
-            request.form["password"],
-            0
-        )
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        if not username or not password:
+            return "missing username or password", 400
+
+        if not is_valid_password(password):
+            return "password must contain at least 8 characters", 400
+
+        try:
+            fn.create_user(
+                username,
+                password,
+                0
+            )
+        except sqlite3.IntegrityError:
+            return "username already exists", 409
+
         return redirect("/login")
     return render_template("register.html")
 
@@ -62,7 +141,7 @@ def login():
         password = request.form.get("password")
 
         if not username or not password:
-            return "missing username or password"
+            return "missing username or password", 400
 
         # FIX: was called twice — once before and once after the guard above
         user = fn.get_user(username, password)
@@ -72,7 +151,7 @@ def login():
             session["admin"] = user["is_admin"]
             return redirect("/")
 
-        return "invalid login"
+        return "invalid login", 401
 
     return render_template("login.html")
 
@@ -92,16 +171,29 @@ def logout():
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
     if not session.get("admin"):
-        return "403 admin only"
+        return "403 admin only", 403
 
     if request.method == "POST":
-        f = request.files["img"]
-        path = os.path.join(UPLOAD_DIR, f.filename)
+        f = request.files.get("img")
+
+        if not f or not f.filename:
+            return "missing image", 400
+
+        filename = secure_filename(f.filename)
+
+        if not is_allowed_image(filename):
+            return "unsupported image type", 400
+
+        path = os.path.join(UPLOAD_DIR, filename)
         f.save(path)
+
+        if not is_valid_image(path):
+            os.remove(path)
+            return "invalid image file", 400
 
         conn = db.get_db()
         cur = conn.execute(
-            "INSERT INTO maps(filename) VALUES(?)", (f.filename,)
+            "INSERT INTO maps(filename) VALUES(?)", (filename,)
         )
         map_id = cur.lastrowid
         conn.commit()
@@ -136,6 +228,9 @@ def add(cid):
 
     uid = session.get("uid")
 
+    if not uid:
+        return "login required", 401
+
     fn.add_transcription(
         cid,
         uid,
@@ -146,6 +241,37 @@ def add(cid):
     fn.mark_chunk_done(cid, uid)
 
     return redirect("/task")
+
+
+@app.route("/add_many/<int:cid>", methods=["POST"])
+def add_many(cid):
+
+    uid = session.get("uid")
+
+    if not uid:
+        return jsonify({"error": "login required"}), 401
+
+    entries = [
+        {
+            "survey_id": entry.get("survey_id", "").strip(),
+            "word": entry.get("word", "").strip(),
+        }
+        for entry in request.get_json(silent=True) or []
+    ]
+    entries = [
+        entry for entry in entries
+        if entry["survey_id"] and entry["word"]
+    ]
+
+    if not entries:
+        return jsonify({"error": "no valid transcription entries"}), 400
+
+    try:
+        fn.add_transcriptions(cid, uid, entries)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 403
+
+    return jsonify({"saved": len(entries)})
 # =========================
 # ✅ REVIEW TASK
 # =========================
@@ -167,6 +293,63 @@ def review():
     ann = fn.get_annotations_for_review(t["id"])
     return render_template("review.html", t=t, annotations=ann)
 
+
+@app.route("/review/<int:cid>", methods=["POST"])
+def submit_review(cid):
+
+    if not is_registered_user():
+        return "Please register to review", 403
+
+    entries = []
+    survey_ids = request.form.getlist("survey_id")
+    original_words = request.form.getlist("original_word")
+    corrected_words = request.form.getlist("corrected_word")
+
+    for survey_id, original_word, corrected_word in zip(
+        survey_ids,
+        original_words,
+        corrected_words
+    ):
+        if survey_id.strip():
+            entries.append({
+                "survey_id": survey_id.strip(),
+                "original_word": original_word.strip(),
+                "corrected_word": corrected_word.strip() or original_word.strip(),
+            })
+
+    if not entries:
+        return "no review entries", 400
+
+    try:
+        fn.add_reviews(cid, session["uid"], entries)
+    except ValueError as exc:
+        return str(exc), 403
+
+    return redirect("/review")
+
+
+@app.route("/keyboard/request", methods=["POST"])
+def request_keyboard_character():
+
+    uid = session.get("uid")
+
+    if not uid:
+        return jsonify({"error": "login required"}), 401
+
+    data = request.get_json(silent=True) or {}
+    character = data.get("character", "").strip()
+    note = data.get("note", "").strip()
+
+    if not character:
+        return jsonify({"error": "missing character"}), 400
+
+    if len(character) > 20:
+        return jsonify({"error": "character is too long"}), 400
+
+    fn.add_keyboard_request(uid, character, note[:500])
+
+    return jsonify({"saved": True})
+
 # =========================
 # 📊 ADMIN: EVOLUTION
 # =========================
@@ -174,7 +357,7 @@ def review():
 def evolution():
 
     if not session.get("admin"):
-        return "403"
+        return "403", 403
 
     maps = fn.get_evolution_stats()
 
@@ -188,7 +371,7 @@ def evolution():
 @app.route("/export_csv/<int:map_id>")
 def export_csv(map_id):
     if not session.get("admin"):
-        return "403"
+        return "403", 403
 
     rows = fn.get_map_export(map_id)
 

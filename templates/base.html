@@ -42,9 +42,10 @@
             <ul class="navbar-nav me-auto">
 
                 {% set uid = session.get("uid") %}
+                {% set uid_str = uid|string %}
                 {% set is_admin = session.get("admin") %}
-                {% set is_logged_in = uid and not uid.startswith("anon_") %}
-                {% set is_anon = uid and uid.startswith("anon_") %}
+                {% set is_logged_in = uid and not uid_str.startswith("anon_") %}
+                {% set is_anon = uid and uid_str.startswith("anon_") %}
 
                 {% if is_admin %}
 
