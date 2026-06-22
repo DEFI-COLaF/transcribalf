@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h3>Upload ALF Map</h3>
+<h3>Upload ALF Map(s)</h3>
 
 <form method="post" enctype="multipart/form-data">
 
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
-    <input type="file" name="img" class="form-control mb-2">
+    <input type="file" name="img" class="form-control mb-2" multiple>
 
     <button class="btn btn-warning">
-        Upload & Split 
+        Upload & Split
     </button>
 
 </form>

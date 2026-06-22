@@ -304,3 +304,47 @@ def test_upload_accepts_real_image(app_client, monkeypatch):
     )
 
     assert response.status_code == 302
+
+
+def test_upload_accepts_multiple_images(app_client, monkeypatch):
+    import db
+    import app as app_module
+
+    seed_user("admin", "secret", is_admin=1)
+    login(app_client, "admin", "secret")
+
+    first_image = BytesIO()
+    Image.new("RGB", (10, 10), "white").save(first_image, format="PNG")
+    first_image.seek(0)
+
+    second_image = BytesIO()
+    Image.new("RGB", (10, 10), "white").save(second_image, format="PNG")
+    second_image.seek(0)
+
+    split_calls = []
+    monkeypatch.setattr(
+        app_module.fn,
+        "split_image",
+        lambda path, map_id: split_calls.append((path, map_id)),
+    )
+
+    response = app_client.post(
+        "/upload",
+        data={
+            **csrf_form(app_client),
+            "img": [
+                (first_image, "map_a.png"),
+                (second_image, "map_b.png"),
+            ],
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 302
+    assert len(split_calls) == 2
+
+    conn = db.get_db()
+    count = conn.execute("SELECT COUNT(*) FROM maps").fetchone()[0]
+    conn.close()
+
+    assert count == 2

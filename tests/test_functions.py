@@ -18,11 +18,14 @@ def test_split_image_creates_chunks_and_database_rows(app_client, tmp_path):
     ).fetchall()
     conn.close()
 
-    assert len(rows) == 72
+    assert len(rows) == 78
     assert rows[0]["map_id"] == 42
     assert rows[0]["idx"] == 0
     assert rows[0]["image"] == "chunks/42_0.png"
     assert Path(functions.CHUNK_DIR, "42_0.png").exists()
+
+    with Image.open(Path(functions.CHUNK_DIR, "42_0.png")) as chunk:
+        assert chunk.size == (10, 10)
 
 
 def test_transcription_task_is_resumable_and_done_chunks_reach_review(app_client):

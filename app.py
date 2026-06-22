@@ -93,6 +93,17 @@ def is_valid_image(path):
 
     return True
 
+
+def unique_upload_path(filename):
+    base, ext = os.path.splitext(filename)
+    path = os.path.join(UPLOAD_DIR, filename)
+
+    while os.path.exists(path):
+        filename = f"{base}_{uuid.uuid4().hex[:8]}{ext}"
+        path = os.path.join(UPLOAD_DIR, filename)
+
+    return filename, path
+
 @app.before_request
 def ensure_anon_id():
 
@@ -183,32 +194,41 @@ def upload():
         return "403 admin only", 403
 
     if request.method == "POST":
-        f = request.files.get("img")
+        files = [
+            f for f in request.files.getlist("img")
+            if f and f.filename
+        ]
 
-        if not f or not f.filename:
+        if not files:
             return "missing image", 400
 
-        filename = secure_filename(f.filename)
+        uploaded_count = 0
 
-        if not is_allowed_image(filename):
-            return "unsupported image type", 400
+        for f in files:
+            filename = secure_filename(f.filename)
 
-        path = os.path.join(UPLOAD_DIR, filename)
-        f.save(path)
+            if not is_allowed_image(filename):
+                return "unsupported image type", 400
 
-        if not is_valid_image(path):
-            os.remove(path)
-            return "invalid image file", 400
+            filename, path = unique_upload_path(filename)
+            f.save(path)
 
-        conn = db.get_db()
-        cur = conn.execute(
-            "INSERT INTO maps(filename) VALUES(?)", (filename,)
-        )
-        map_id = cur.lastrowid
-        conn.commit()
-        conn.close()
+            if not is_valid_image(path):
+                os.remove(path)
+                return "invalid image file", 400
 
-        fn.split_image(path, map_id)
+            conn = db.get_db()
+            cur = conn.execute(
+                "INSERT INTO maps(filename) VALUES(?)", (filename,)
+            )
+            map_id = cur.lastrowid
+            conn.commit()
+            conn.close()
+
+            fn.split_image(path, map_id)
+            uploaded_count += 1
+
+        flash(f"{uploaded_count} map(s) uploaded and split.")
 
         return redirect(url_for("home"))
 

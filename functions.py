@@ -6,11 +6,28 @@ from db import get_db
 
 CHUNK_DIR = os.environ.get("TRANSCRIPTALF_CHUNK_DIR", "static/chunks")
 CHUNK_URL_PREFIX = os.environ.get("TRANSCRIPTALF_CHUNK_URL_PREFIX", "chunks")
+CHUNK_GRID_COLUMNS = int(os.environ.get("TRANSCRIPTALF_CHUNK_GRID_COLUMNS", "10"))
+CHUNK_GRID_ROWS = int(os.environ.get("TRANSCRIPTALF_CHUNK_GRID_ROWS", "5"))
+CHUNK_OVERLAP_RATIO = float(os.environ.get("TRANSCRIPTALF_CHUNK_OVERLAP_RATIO", "0.2"))
+CHUNK_PNG_COMPRESS_LEVEL = int(os.environ.get("TRANSCRIPTALF_CHUNK_PNG_COMPRESS_LEVEL", "1"))
 
 
 # =========================
 # ✂️ CHUNKING
 # =========================
+def _axis_positions(length, chunk_size, step):
+    if length <= chunk_size:
+        return [0]
+
+    positions = list(range(0, length - chunk_size + 1, step))
+    last_position = length - chunk_size
+
+    if positions[-1] != last_position:
+        positions.append(last_position)
+
+    return positions
+
+
 def split_image(path, map_id):
 
     img = Image.open(path)
@@ -18,32 +35,31 @@ def split_image(path, map_id):
 
     os.makedirs(CHUNK_DIR, exist_ok=True)
 
-    cols = 10
-    rows = 5
-
     conn = get_db()
     cur = conn.cursor()
 
-    # overlap ratio (20% overlap)
-    overlap_ratio = 0.2
+    chunk_size = max(
+        1,
+        min(
+            w // CHUNK_GRID_COLUMNS,
+            h // CHUNK_GRID_ROWS,
+        )
+    )
 
-    cw = w // cols
-    ch = h // rows
-
-    # step is smaller than chunk size → overlap
-    step_x = int(cw * (1 - overlap_ratio))
-    step_y = int(ch * (1 - overlap_ratio))
+    step = max(1, int(chunk_size * (1 - CHUNK_OVERLAP_RATIO)))
+    x_positions = _axis_positions(w, chunk_size, step)
+    y_positions = _axis_positions(h, chunk_size, step)
 
     idx = 0
 
-    for y in range(0, h - ch + 1, step_y):
-        for x in range(0, w - cw + 1, step_x):
+    for y in y_positions:
+        for x in x_positions:
 
             box = (
                 x,
                 y,
-                x + cw,
-                y + ch
+                x + chunk_size,
+                y + chunk_size
             )
 
             chunk = img.crop(box)
@@ -51,7 +67,7 @@ def split_image(path, map_id):
             fname = f"{map_id}_{idx}.png"
             out = os.path.join(CHUNK_DIR, fname)
 
-            chunk.save(out)
+            chunk.save(out, compress_level=CHUNK_PNG_COMPRESS_LEVEL)
 
             cur.execute("""
                 INSERT INTO chunks(map_id, idx, image)
