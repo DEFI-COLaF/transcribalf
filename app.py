@@ -9,12 +9,14 @@ from flask import (
     render_template,
     request,
     redirect,
+    url_for,
     session,
     flash,
     Response,
     jsonify,
 )
 from PIL import Image, UnidentifiedImageError
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 
 import db
@@ -23,6 +25,13 @@ import uuid
 
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,
+    x_proto=1,
+    x_host=1,
+    x_prefix=1,
+)
 
 if os.environ.get("FLASK_ENV") == "production" and not os.environ.get("FLASK_SECRET_KEY"):
     raise RuntimeError("FLASK_SECRET_KEY must be set in production")
@@ -126,7 +135,7 @@ def register():
         except sqlite3.IntegrityError:
             return "username already exists", 409
 
-        return redirect("/login")
+        return redirect(url_for("login"))
     return render_template("register.html")
 
 
@@ -149,7 +158,7 @@ def login():
         if user:
             session["uid"] = user["id"]
             session["admin"] = user["is_admin"]
-            return redirect("/")
+            return redirect(url_for("home"))
 
         return "invalid login", 401
 
@@ -162,7 +171,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect("/")
+    return redirect(url_for("home"))
 
 
 # =========================
@@ -201,7 +210,7 @@ def upload():
 
         fn.split_image(path, map_id)
 
-        return redirect("/")
+        return redirect(url_for("home"))
 
     return render_template("upload.html")
 
@@ -212,13 +221,13 @@ def upload():
 @app.route("/task")
 def task():
     if "uid" not in session:
-        return redirect("/login")
+        return redirect(url_for("login"))
 
     t = fn.get_next_transcription_task(session["uid"])
 
     if not t:
         flash("✅ All transcription tasks are completed.")
-        return redirect("/")
+        return redirect(url_for("home"))
 
     ann = fn.get_annotations(t["id"])
     return render_template("task.html", t=t, annotations=ann)
@@ -240,7 +249,7 @@ def add(cid):
 
     fn.mark_chunk_done(cid, uid)
 
-    return redirect("/task")
+    return redirect(url_for("task"))
 
 
 @app.route("/add_many/<int:cid>", methods=["POST"])
@@ -277,7 +286,7 @@ def add_many(cid):
 def review():
 
     if "uid" not in session:
-        return redirect("/login")
+        return redirect(url_for("login"))
 
     if str(session["uid"]).startswith("anon_"):
         return "Please register to review"
@@ -286,7 +295,7 @@ def review():
 
     if not t:
         flash("No review tasks available")
-        return redirect("/")
+        return redirect(url_for("home"))
 
     ann = fn.get_annotations_for_review(t["id"])
     return render_template("review.html", t=t, annotations=ann)
@@ -323,7 +332,7 @@ def submit_review(cid):
     except ValueError as exc:
         return str(exc), 403
 
-    return redirect("/review")
+    return redirect(url_for("review"))
 
 
 @app.route("/keyboard/request", methods=["POST"])

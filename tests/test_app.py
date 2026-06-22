@@ -35,6 +35,19 @@ def test_post_requires_csrf_token(app_client):
     assert response.status_code == 400
 
 
+def test_links_include_forwarded_prefix(app_client):
+    response = app_client.get(
+        "/",
+        headers={"X-Forwarded-Prefix": "/transcribalf"},
+    )
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'href="/transcribalf/task"' in html
+    assert 'href="/transcribalf/login"' in html
+    assert 'src="/transcribalf/static/img/colaf_logo.png"' in html
+
+
 def test_admin_routes_are_forbidden_for_non_admin(app_client):
     response = app_client.get("/admin/evolution")
     assert response.status_code == 403

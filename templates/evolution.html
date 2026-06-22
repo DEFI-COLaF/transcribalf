@@ -44,7 +44,7 @@
 
             <td>
                 <a
-                    href="/export_csv/{{ m.id }}"
+                    href="{{ url_for('export_csv', map_id=m.id) }}"
                     class="btn btn-success btn-sm">
                     CSV
                 </a>

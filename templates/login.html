@@ -6,7 +6,7 @@
 
         <h3 class="mb-3">Login</h3>
 
-        <form method="POST" action="/login">
+        <form method="POST" action="{{ url_for('login') }}">
 
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 

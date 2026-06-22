@@ -380,7 +380,7 @@ async function requestKeyboardCharacter() {
         return;
     }
 
-    const response = await fetch("/keyboard/request", {
+    const response = await fetch("{{ url_for('request_keyboard_character') }}", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -442,7 +442,7 @@ async function submitAll() {
     const btn = document.getElementById("submitBtn");
     btn.disabled = true;
 
-    const response = await fetch("/add_many/{{t.id}}", {
+    const response = await fetch("{{ url_for('add_many', cid=t.id) }}", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -452,7 +452,7 @@ async function submitAll() {
     });
 
     if (response.ok) {
-        window.location = "/task";
+        window.location = "{{ url_for('task') }}";
     } else {
         btn.disabled = false;
         alert("The transcription could not be saved.");
@@ -471,7 +471,7 @@ async function nextChunk() {
     const btn = document.getElementById("nextBtn");
     btn.disabled = true;
 
-    const response = await fetch("/add_many/{{t.id}}", {
+    const response = await fetch("{{ url_for('add_many', cid=t.id) }}", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -481,7 +481,7 @@ async function nextChunk() {
     });
 
     if (response.ok) {
-        window.location = "/task";
+        window.location = "{{ url_for('task') }}";
     } else {
         btn.disabled = false;
         alert("The chunk could not be completed.");

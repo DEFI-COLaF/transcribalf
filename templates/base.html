@@ -29,7 +29,7 @@
 
     <div class="container-fluid">
 
-        <a class="navbar-brand" href="/">ALF</a>
+        <a class="navbar-brand" href="{{ url_for('home') }}">ALF</a>
 
         <button class="navbar-toggler" type="button"
                 data-bs-toggle="collapse"
@@ -51,49 +51,49 @@
 
                     <!-- ADMIN MENU -->
                     <li class="nav-item">
-                        <a class="nav-link" href="/upload">Upload</a>
+                        <a class="nav-link" href="{{ url_for('upload') }}">Upload</a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/admin/evolution">Evolution</a>
+                        <a class="nav-link" href="{{ url_for('evolution') }}">Evolution</a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/logout">Logout</a>
+                        <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
                     </li>
 
                 {% elif is_logged_in %}
 
                     <!-- REGISTERED USER -->
                     <li class="nav-item">
-                        <a class="nav-link" href="/task">Transcribe</a>
+                        <a class="nav-link" href="{{ url_for('task') }}">Transcribe</a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/review">Review</a>
+                        <a class="nav-link" href="{{ url_for('review') }}">Review</a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/logout">Logout</a>
+                        <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
                     </li>
 
                 {% else %}
 
                     <!-- ANONYMOUS USER -->
                     <li class="nav-item">
-                        <a class="nav-link" href="/task">Transcribe</a>
+                        <a class="nav-link" href="{{ url_for('task') }}">Transcribe</a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/review">Review</a>
+                        <a class="nav-link" href="{{ url_for('review') }}">Review</a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/login">Login</a>
+                        <a class="nav-link" href="{{ url_for('login') }}">Login</a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/register">Register</a>
+                        <a class="nav-link" href="{{ url_for('register') }}">Register</a>
                     </li>
 
                 {% endif %}

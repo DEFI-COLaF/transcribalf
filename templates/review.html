@@ -21,7 +21,7 @@
 
         <h5>Review annotations</h5>
 
-        <form method="POST" action="/review/{{t.id}}">
+        <form method="POST" action="{{ url_for('submit_review', cid=t.id) }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
             <table class="table table-sm">
@@ -59,7 +59,7 @@
             </button>
         </form>
 
-        <a href="/review" class="btn btn-secondary w-100 mt-2">
+        <a href="{{ url_for('review') }}" class="btn btn-secondary w-100 mt-2">
             Next review task
         </a>
 
