@@ -251,20 +251,18 @@ def add_many(cid):
     if not uid:
         return jsonify({"error": "login required"}), 401
 
+    raw_entries = request.get_json(silent=True) or []
     entries = [
         {
             "survey_id": entry.get("survey_id", "").strip(),
             "word": entry.get("word", "").strip(),
         }
-        for entry in request.get_json(silent=True) or []
+        for entry in raw_entries
     ]
     entries = [
         entry for entry in entries
         if entry["survey_id"] and entry["word"]
     ]
-
-    if not entries:
-        return jsonify({"error": "no valid transcription entries"}), 400
 
     try:
         fn.add_transcriptions(cid, uid, entries)

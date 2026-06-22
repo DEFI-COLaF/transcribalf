@@ -51,9 +51,9 @@
             Submit transcription
         </button>
 
-        <a href="/task" class="btn btn-primary w-100 mt-2">
+        <button id="nextBtn" class="btn btn-primary w-100 mt-2" onclick="nextChunk()">
             Next chunk
-        </a>
+        </button>
 
         <hr>
 
@@ -456,6 +456,35 @@ async function submitAll() {
     } else {
         btn.disabled = false;
         alert("The transcription could not be saved.");
+    }
+}
+
+async function nextChunk() {
+    let inputs = document.querySelectorAll("#annTable tbody input");
+    let hasStartedRow = Array.from(inputs).some(input => input.value.trim());
+
+    if (hasStartedRow) {
+        alert("Submit the transcription or clear the row before moving to the next chunk.");
+        return;
+    }
+
+    const btn = document.getElementById("nextBtn");
+    btn.disabled = true;
+
+    const response = await fetch("/add_many/{{t.id}}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken
+        },
+        body: JSON.stringify([])
+    });
+
+    if (response.ok) {
+        window.location = "/task";
+    } else {
+        btn.disabled = false;
+        alert("The chunk could not be completed.");
     }
 }
 

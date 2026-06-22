@@ -78,6 +78,39 @@ def test_add_many_saves_multiple_transcriptions(app_client):
     assert status == "done"
 
 
+def test_add_many_allows_empty_transcription(app_client):
+    import db
+
+    conn = db.get_db()
+    cur = conn.execute("INSERT INTO chunks(map_id, idx, image) VALUES (1, 0, 'chunks/a.png')")
+    chunk_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+
+    with app_client.session_transaction() as session:
+        session["uid"] = "anon_test"
+
+    app_client.get("/task")
+    response = app_client.post(
+        f"/add_many/{chunk_id}",
+        json=[],
+        headers=csrf_headers(app_client),
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["saved"] == 0
+
+    conn = db.get_db()
+    count = conn.execute("SELECT COUNT(*) FROM transcriptions").fetchone()[0]
+    status = conn.execute(
+        "SELECT status FROM chunks WHERE id=?", (chunk_id,)
+    ).fetchone()[0]
+    conn.close()
+
+    assert count == 0
+    assert status == "done"
+
+
 def test_add_many_rejects_chunk_assigned_to_another_user(app_client):
     import db
 
