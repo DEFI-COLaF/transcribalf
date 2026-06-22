@@ -392,6 +392,21 @@ def evolution():
         "evolution.html",
         maps=maps
     )
+
+
+@app.route("/admin/maps/<int:map_id>/delete", methods=["POST"])
+def delete_map(map_id):
+
+    if not session.get("admin"):
+        return "403", 403
+
+    try:
+        fn.delete_map(map_id, UPLOAD_DIR)
+    except ValueError as exc:
+        return str(exc), 404
+
+    flash("Map deleted.")
+    return redirect(url_for("evolution"))
 # =========================
 # 📥 EXPORT CSV
 # =========================

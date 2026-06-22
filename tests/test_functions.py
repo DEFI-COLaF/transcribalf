@@ -106,3 +106,62 @@ def test_export_joins_corrections_by_survey_id(app_client):
 
     assert rows[0]["word_form"] == "pan"
     assert rows[0]["corrected_word"] == "pain"
+
+
+def test_delete_map_removes_related_rows_and_files(app_client, tmp_path):
+    import db
+    import functions
+
+    upload_dir = tmp_path / "uploads"
+    upload_dir.mkdir(exist_ok=True)
+    upload_file = upload_dir / "map.png"
+    upload_file.write_bytes(b"map")
+
+    chunk_file = Path(functions.CHUNK_DIR, "42_0.png")
+    chunk_file.parent.mkdir(parents=True, exist_ok=True)
+    chunk_file.write_bytes(b"chunk")
+
+    conn = db.get_db()
+    cur = conn.execute("INSERT INTO maps(filename) VALUES ('map.png')")
+    map_id = cur.lastrowid
+    cur = conn.execute(
+        "INSERT INTO chunks(map_id, idx, image) VALUES (?, 0, 'chunks/42_0.png')",
+        (map_id,),
+    )
+    chunk_id = cur.lastrowid
+    conn.execute(
+        """
+        INSERT INTO transcriptions(chunk_id, user_id, survey_id, word_form)
+        VALUES (?, 1, '001', 'pan')
+        """,
+        (chunk_id,),
+    )
+    conn.execute(
+        """
+        INSERT INTO review_entries(
+            chunk_id, survey_id, original_word, corrected_word, reviewer_id
+        )
+        VALUES (?, '001', 'pan', 'pain', 2)
+        """,
+        (chunk_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    functions.delete_map(map_id, str(upload_dir))
+
+    conn = db.get_db()
+    counts = {
+        table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        for table in ("maps", "chunks", "transcriptions", "review_entries")
+    }
+    conn.close()
+
+    assert counts == {
+        "maps": 0,
+        "chunks": 0,
+        "transcriptions": 0,
+        "review_entries": 0,
+    }
+    assert not upload_file.exists()
+    assert not chunk_file.exists()

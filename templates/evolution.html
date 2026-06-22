@@ -14,6 +14,7 @@
             <th>Transcribed</th>
             <th>Reviewed</th>
             <th>Export</th>
+            <th>Delete</th>
             <th>Details</th>
         </tr>
     </thead>
@@ -51,6 +52,18 @@
             </td>
 
             <td>
+                <form
+                    method="POST"
+                    action="{{ url_for('delete_map', map_id=m.id) }}"
+                    onsubmit="return confirm('Delete this map and all related chunks/transcriptions?');">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-danger btn-sm">
+                        Delete
+                    </button>
+                </form>
+            </td>
+
+            <td>
                 <button
                     class="btn btn-primary btn-sm"
                     data-bs-toggle="collapse"
@@ -63,7 +76,7 @@
 
         <tr>
 
-            <td colspan="6">
+            <td colspan="7">
 
                 <div
                     class="collapse"

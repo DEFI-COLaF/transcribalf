@@ -55,6 +55,12 @@ def test_admin_routes_are_forbidden_for_non_admin(app_client):
     response = app_client.get("/export_csv/1")
     assert response.status_code == 403
 
+    response = app_client.post(
+        "/admin/maps/1/delete",
+        data=csrf_form(app_client),
+    )
+    assert response.status_code == 403
+
 
 def test_add_many_saves_multiple_transcriptions(app_client):
     import db
@@ -348,3 +354,34 @@ def test_upload_accepts_multiple_images(app_client, monkeypatch):
     conn.close()
 
     assert count == 2
+
+
+def test_admin_can_delete_map(app_client):
+    import db
+
+    seed_user("admin", "secret", is_admin=1)
+    login(app_client, "admin", "secret")
+
+    conn = db.get_db()
+    cur = conn.execute("INSERT INTO maps(filename) VALUES ('map.png')")
+    map_id = cur.lastrowid
+    conn.execute(
+        "INSERT INTO chunks(map_id, idx, image) VALUES (?, 0, 'chunks/a.png')",
+        (map_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    response = app_client.post(
+        f"/admin/maps/{map_id}/delete",
+        data=csrf_form(app_client),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+
+    conn = db.get_db()
+    count = conn.execute("SELECT COUNT(*) FROM maps").fetchone()[0]
+    conn.close()
+
+    assert count == 0

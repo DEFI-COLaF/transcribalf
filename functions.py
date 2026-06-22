@@ -132,6 +132,57 @@ def add_transcription(chunk_id, user_id, survey_id, word_form):
     conn.close()
 
 
+def _remove_file_if_exists(path):
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+
+
+def delete_map(map_id, upload_dir="uploads"):
+    conn = get_db()
+
+    map_row = conn.execute("""
+        SELECT filename
+        FROM maps
+        WHERE id = ?
+    """, (map_id,)).fetchone()
+
+    if not map_row:
+        conn.close()
+        raise ValueError("map not found")
+
+    chunks = conn.execute("""
+        SELECT id, image
+        FROM chunks
+        WHERE map_id = ?
+    """, (map_id,)).fetchall()
+    chunk_ids = [chunk["id"] for chunk in chunks]
+
+    if chunk_ids:
+        placeholders = ",".join("?" for _ in chunk_ids)
+        conn.execute(
+            f"DELETE FROM review_entries WHERE chunk_id IN ({placeholders})",
+            chunk_ids,
+        )
+        conn.execute(
+            f"DELETE FROM transcriptions WHERE chunk_id IN ({placeholders})",
+            chunk_ids,
+        )
+
+    conn.execute("DELETE FROM chunks WHERE map_id = ?", (map_id,))
+    conn.execute("DELETE FROM maps WHERE id = ?", (map_id,))
+    conn.commit()
+    conn.close()
+
+    upload_path = os.path.join(upload_dir, os.path.basename(map_row["filename"]))
+    _remove_file_if_exists(upload_path)
+
+    for chunk in chunks:
+        chunk_path = os.path.join(CHUNK_DIR, os.path.basename(chunk["image"]))
+        _remove_file_if_exists(chunk_path)
+
+
 def add_transcriptions(chunk_id, user_id, entries):
     conn = get_db()
 
