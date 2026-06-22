@@ -198,6 +198,12 @@ def add_transcriptions(chunk_id, user_id, entries):
         conn.close()
         raise ValueError("chunk is not assigned to this transcriber")
 
+    conn.execute("""
+        DELETE FROM transcriptions
+        WHERE chunk_id = ?
+        AND user_id = ?
+    """, (chunk_id, user_id))
+
     conn.executemany("""
         INSERT INTO transcriptions(chunk_id, user_id, survey_id, word_form)
         VALUES (?,?,?,?)
@@ -215,6 +221,71 @@ def add_transcriptions(chunk_id, user_id, entries):
 
     conn.commit()
     conn.close()
+
+
+def assign_previous_transcription_task(current_chunk_id, user_id):
+    conn = get_db()
+
+    current = conn.execute("""
+        SELECT id
+        FROM chunks
+        WHERE id = ?
+        AND transcriber_id = ?
+        AND status = 'assigned'
+    """, (current_chunk_id, user_id)).fetchone()
+
+    if not current:
+        conn.close()
+        raise ValueError("current chunk is not assigned to this transcriber")
+
+    current_transcriptions = conn.execute("""
+        SELECT COUNT(*)
+        FROM transcriptions
+        WHERE chunk_id = ?
+        AND user_id = ?
+    """, (current_chunk_id, user_id)).fetchone()[0]
+
+    previous = conn.execute("""
+        SELECT id
+        FROM chunks
+        WHERE transcriber_id = ?
+        AND status = 'done'
+        AND id < ?
+        ORDER BY id DESC
+        LIMIT 1
+    """, (user_id, current_chunk_id)).fetchone()
+
+    if not previous:
+        conn.close()
+        return None
+
+    if current_transcriptions:
+        conn.execute("""
+            UPDATE chunks
+            SET status = 'done'
+            WHERE id = ?
+            AND transcriber_id = ?
+        """, (current_chunk_id, user_id))
+    else:
+        conn.execute("""
+            UPDATE chunks
+            SET status = 'free',
+                transcriber_id = NULL
+            WHERE id = ?
+            AND transcriber_id = ?
+        """, (current_chunk_id, user_id))
+
+    conn.execute("""
+        UPDATE chunks
+        SET status = 'assigned'
+        WHERE id = ?
+        AND transcriber_id = ?
+    """, (previous["id"], user_id))
+
+    conn.commit()
+    conn.close()
+
+    return previous["id"]
 
 def get_annotations(chunk_id):
     conn = get_db()

@@ -130,6 +130,100 @@ def test_add_many_allows_empty_transcription(app_client):
     assert status == "done"
 
 
+def test_add_many_rejects_incomplete_rows(app_client):
+    import db
+
+    conn = db.get_db()
+    cur = conn.execute("INSERT INTO chunks(map_id, idx, image) VALUES (1, 0, 'chunks/a.png')")
+    chunk_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+
+    with app_client.session_transaction() as session:
+        session["uid"] = "anon_test"
+
+    app_client.get("/task")
+    response = app_client.post(
+        f"/add_many/{chunk_id}",
+        json=[{"survey_id": "001", "word": ""}],
+        headers=csrf_headers(app_client),
+    )
+
+    assert response.status_code == 400
+
+
+def test_add_many_rejects_non_numeric_survey_ids(app_client):
+    import db
+
+    conn = db.get_db()
+    cur = conn.execute("INSERT INTO chunks(map_id, idx, image) VALUES (1, 0, 'chunks/a.png')")
+    chunk_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+
+    with app_client.session_transaction() as session:
+        session["uid"] = "anon_test"
+
+    app_client.get("/task")
+    response = app_client.post(
+        f"/add_many/{chunk_id}",
+        json=[{"survey_id": "001a", "word": "pain"}],
+        headers=csrf_headers(app_client),
+    )
+
+    assert response.status_code == 400
+
+
+def test_previous_task_reassigns_previous_chunk(app_client):
+    import db
+
+    conn = db.get_db()
+    first = conn.execute(
+        """
+        INSERT INTO chunks(map_id, idx, image, transcriber_id, status)
+        VALUES (1, 0, 'chunks/a.png', 'anon_test', 'done')
+        """
+    ).lastrowid
+    second = conn.execute(
+        """
+        INSERT INTO chunks(map_id, idx, image, transcriber_id, status)
+        VALUES (1, 1, 'chunks/b.png', 'anon_test', 'assigned')
+        """
+    ).lastrowid
+    conn.execute(
+        """
+        INSERT INTO transcriptions(chunk_id, user_id, survey_id, word_form)
+        VALUES (?, 'anon_test', '001', 'pain')
+        """,
+        (first,),
+    )
+    conn.commit()
+    conn.close()
+
+    with app_client.session_transaction() as session:
+        session["uid"] = "anon_test"
+
+    response = app_client.post(
+        f"/task/{second}/previous",
+        headers=csrf_headers(app_client),
+    )
+
+    assert response.status_code == 200
+
+    conn = db.get_db()
+    first_status = conn.execute(
+        "SELECT status FROM chunks WHERE id=?", (first,)
+    ).fetchone()[0]
+    second_row = conn.execute(
+        "SELECT status, transcriber_id FROM chunks WHERE id=?", (second,)
+    ).fetchone()
+    conn.close()
+
+    assert first_status == "assigned"
+    assert second_row["status"] == "free"
+    assert second_row["transcriber_id"] is None
+
+
 def test_add_many_rejects_chunk_assigned_to_another_user(app_client):
     import db
 

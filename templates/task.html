@@ -35,13 +35,25 @@
             </thead>
 
             <tbody>
+                {% if annotations %}
+                    {% for a in annotations %}
                 <tr>
-                    <td><input class="form-control" name="survey"></td>
+                    <td><input class="form-control" name="survey" inputmode="numeric" pattern="[0-9]*" value="{{ a['survey_id'] }}"></td>
+                    <td><input class="form-control" name="word" value="{{ a['word_form'] }}"></td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>
+                    </td>
+                </tr>
+                    {% endfor %}
+                {% else %}
+                <tr>
+                    <td><input class="form-control" name="survey" inputmode="numeric" pattern="[0-9]*"></td>
                     <td><input class="form-control" name="word"></td>
                     <td>
                         <button class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>
                     </td>
                 </tr>
+                {% endif %}
             </tbody>
         </table>
 
@@ -53,6 +65,10 @@
 
         <button id="nextBtn" class="btn btn-primary w-100 mt-2" onclick="nextChunk()">
             Next chunk
+        </button>
+
+        <button id="previousBtn" class="btn btn-outline-primary w-100 mt-2" onclick="previousChunk()">
+            Previous chunk
         </button>
 
         <hr>
@@ -421,21 +437,47 @@ function removeRow(btn) {
     }
 }
 
-async function submitAll() {
+function collectEntries({allowEmpty = false} = {}) {
     let rows = document.querySelectorAll("#annTable tbody tr");
     let entries = [];
 
-    rows.forEach(r => {
-        let survey = r.querySelector("input[name='survey']").value;
-        let word = r.querySelector("input[name='word']").value;
+    for (const r of rows) {
+        let survey = r.querySelector("input[name='survey']").value.trim();
+        let word = r.querySelector("input[name='word']").value.trim();
 
-        if (survey && word) {
-            entries.push({survey_id: survey, word: word});
+        if (!survey && !word) {
+            continue;
         }
-    });
 
-    if (!entries.length) {
-        alert("Please add at least one complete row.");
+        if (!survey || !word) {
+            return {
+                error: "Each row needs both a survey number and a word."
+            };
+        }
+
+        if (!/^\d+$/.test(survey)) {
+            return {
+                error: "Survey ID must contain digits only."
+            };
+        }
+
+        entries.push({survey_id: survey, word: word});
+    }
+
+    if (!allowEmpty && !entries.length) {
+        return {
+            error: "Please add at least one complete row, or use Next chunk if there are no words."
+        };
+    }
+
+    return {entries};
+}
+
+async function submitAll() {
+    const result = collectEntries();
+
+    if (result.error) {
+        alert(result.error);
         return;
     }
 
@@ -448,7 +490,7 @@ async function submitAll() {
             "Content-Type": "application/json",
             "X-CSRFToken": csrfToken
         },
-        body: JSON.stringify(entries)
+        body: JSON.stringify(result.entries)
     });
 
     if (response.ok) {
@@ -460,11 +502,15 @@ async function submitAll() {
 }
 
 async function nextChunk() {
-    let inputs = document.querySelectorAll("#annTable tbody input");
-    let hasStartedRow = Array.from(inputs).some(input => input.value.trim());
+    const result = collectEntries({allowEmpty: true});
 
-    if (hasStartedRow) {
-        alert("Submit the transcription or clear the row before moving to the next chunk.");
+    if (result.error) {
+        alert(result.error);
+        return;
+    }
+
+    if (result.entries.length) {
+        alert("Submit the transcription before moving to the next chunk.");
         return;
     }
 
@@ -485,6 +531,39 @@ async function nextChunk() {
     } else {
         btn.disabled = false;
         alert("The chunk could not be completed.");
+    }
+}
+
+async function previousChunk() {
+    const result = collectEntries({allowEmpty: true});
+
+    if (result.error) {
+        alert(result.error);
+        return;
+    }
+
+    if (result.entries.length) {
+        alert("Submit the transcription before moving to the previous chunk.");
+        return;
+    }
+
+    const btn = document.getElementById("previousBtn");
+    btn.disabled = true;
+
+    const response = await fetch("{{ url_for('previous_task', cid=t.id) }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken
+        },
+        body: JSON.stringify({})
+    });
+
+    if (response.ok) {
+        window.location = "{{ url_for('task') }}";
+    } else {
+        btn.disabled = false;
+        alert("No previous chunk is available.");
     }
 }
 

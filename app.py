@@ -281,17 +281,33 @@ def add_many(cid):
         return jsonify({"error": "login required"}), 401
 
     raw_entries = request.get_json(silent=True) or []
+
+    if not isinstance(raw_entries, list):
+        return jsonify({"error": "invalid transcription payload"}), 400
+
     entries = [
         {
             "survey_id": entry.get("survey_id", "").strip(),
             "word": entry.get("word", "").strip(),
         }
         for entry in raw_entries
+        if isinstance(entry, dict)
     ]
-    entries = [
-        entry for entry in entries
-        if entry["survey_id"] and entry["word"]
-    ]
+
+    if len(entries) != len(raw_entries):
+        return jsonify({"error": "invalid transcription row"}), 400
+
+    for entry in entries:
+        has_survey = bool(entry["survey_id"])
+        has_word = bool(entry["word"])
+
+        if has_survey != has_word:
+            return jsonify({"error": "each row needs both a number and a word"}), 400
+
+        if has_survey and not entry["survey_id"].isdigit():
+            return jsonify({"error": "survey number must contain digits only"}), 400
+
+    entries = [entry for entry in entries if entry["survey_id"]]
 
     try:
         fn.add_transcriptions(cid, uid, entries)
@@ -299,6 +315,25 @@ def add_many(cid):
         return jsonify({"error": str(exc)}), 403
 
     return jsonify({"saved": len(entries)})
+
+
+@app.route("/task/<int:cid>/previous", methods=["POST"])
+def previous_task(cid):
+
+    uid = session.get("uid")
+
+    if not uid:
+        return jsonify({"error": "login required"}), 401
+
+    try:
+        previous_id = fn.assign_previous_transcription_task(cid, uid)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 403
+
+    if not previous_id:
+        return jsonify({"error": "no previous chunk"}), 404
+
+    return jsonify({"chunk_id": previous_id})
 # =========================
 # ✅ REVIEW TASK
 # =========================
