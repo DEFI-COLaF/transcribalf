@@ -53,6 +53,28 @@ def test_transcription_task_is_resumable_and_done_chunks_reach_review(app_client
     assert functions.assign_review_task(2)["id"] == first["id"]
 
 
+def test_empty_done_chunks_are_requeued_for_transcription(app_client):
+    import db
+    import functions
+
+    conn = db.get_db()
+    conn.execute(
+        """
+        INSERT INTO chunks(map_id, idx, image, transcriber_id, status)
+        VALUES (1, 0, 'chunks/a.png', 'anon_old', 'done')
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    task = functions.get_next_transcription_task("anon_new")
+
+    assert task is not None
+    assert task["image"] == "chunks/a.png"
+    assert task["status"] == "assigned"
+    assert task["transcriber_id"] == "anon_new"
+
+
 def test_review_excludes_own_transcriptions(app_client):
     import db
     import functions
@@ -62,6 +84,12 @@ def test_review_excludes_own_transcriptions(app_client):
         """
         INSERT INTO chunks(map_id, idx, image, transcriber_id, status)
         VALUES (1, 0, 'chunks/a.png', 7, 'done')
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO transcriptions(chunk_id, user_id, survey_id, word_form)
+        VALUES (1, 7, '001', 'pain')
         """
     )
     conn.commit()

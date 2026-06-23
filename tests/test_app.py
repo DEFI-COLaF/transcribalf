@@ -97,7 +97,7 @@ def test_add_many_saves_multiple_transcriptions(app_client):
     assert status == "done"
 
 
-def test_add_many_allows_empty_transcription(app_client):
+def test_add_many_empty_transcription_requeues_chunk(app_client):
     import db
 
     conn = db.get_db()
@@ -121,13 +121,49 @@ def test_add_many_allows_empty_transcription(app_client):
 
     conn = db.get_db()
     count = conn.execute("SELECT COUNT(*) FROM transcriptions").fetchone()[0]
-    status = conn.execute(
-        "SELECT status FROM chunks WHERE id=?", (chunk_id,)
-    ).fetchone()[0]
+    chunk = conn.execute(
+        "SELECT status, transcriber_id FROM chunks WHERE id=?", (chunk_id,)
+    ).fetchone()
     conn.close()
 
     assert count == 0
-    assert status == "done"
+    assert chunk["status"] == "free"
+    assert chunk["transcriber_id"] is None
+
+
+def test_mark_no_image_completes_empty_chunk_without_review(app_client):
+    import db
+    import functions
+
+    conn = db.get_db()
+    cur = conn.execute("INSERT INTO chunks(map_id, idx, image) VALUES (1, 0, 'chunks/a.png')")
+    chunk_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+
+    with app_client.session_transaction() as session:
+        session["uid"] = "anon_test"
+
+    app_client.get("/task")
+    response = app_client.post(
+        f"/task/{chunk_id}/no_image",
+        json={},
+        headers=csrf_headers(app_client),
+    )
+
+    assert response.status_code == 200
+
+    conn = db.get_db()
+    chunk = conn.execute(
+        "SELECT status, transcriber_id FROM chunks WHERE id=?", (chunk_id,)
+    ).fetchone()
+    count = conn.execute("SELECT COUNT(*) FROM transcriptions").fetchone()[0]
+    conn.close()
+
+    assert chunk["status"] == "no_image"
+    assert chunk["transcriber_id"] == "anon_test"
+    assert count == 0
+    assert functions.assign_review_task(1) is None
 
 
 def test_add_many_rejects_incomplete_rows(app_client):

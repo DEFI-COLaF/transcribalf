@@ -86,6 +86,19 @@ def get_next_transcription_task(user_id):
 
     conn = get_db()
 
+    conn.execute("""
+        UPDATE chunks
+        SET status = 'free',
+            transcriber_id = NULL
+        WHERE status = 'done'
+        AND NOT EXISTS (
+            SELECT 1
+            FROM transcriptions
+            WHERE transcriptions.chunk_id = chunks.id
+        )
+    """)
+    conn.commit()
+
     task = conn.execute("""
         SELECT *
         FROM chunks
@@ -212,9 +225,49 @@ def add_transcriptions(chunk_id, user_id, entries):
         for entry in entries
     ])
 
+    if entries:
+        conn.execute("""
+            UPDATE chunks
+            SET status = 'done'
+            WHERE id = ?
+            AND transcriber_id = ?
+        """, (chunk_id, user_id))
+    else:
+        conn.execute("""
+            UPDATE chunks
+            SET status = 'free',
+                transcriber_id = NULL
+            WHERE id = ?
+            AND transcriber_id = ?
+        """, (chunk_id, user_id))
+
+    conn.commit()
+    conn.close()
+
+
+def mark_chunk_no_image(chunk_id, user_id):
+    conn = get_db()
+
+    chunk = conn.execute("""
+        SELECT id
+        FROM chunks
+        WHERE id = ?
+        AND transcriber_id = ?
+        AND status = 'assigned'
+    """, (chunk_id, user_id)).fetchone()
+
+    if not chunk:
+        conn.close()
+        raise ValueError("chunk is not assigned to this transcriber")
+
+    conn.execute("""
+        DELETE FROM transcriptions
+        WHERE chunk_id = ?
+    """, (chunk_id,))
+
     conn.execute("""
         UPDATE chunks
-        SET status = 'done'
+        SET status = 'no_image'
         WHERE id = ?
         AND transcriber_id = ?
     """, (chunk_id, user_id))
@@ -313,6 +366,11 @@ def assign_review_task(user_id):
         FROM chunks
         WHERE reviewer_id = ?
         AND status = 'done'
+        AND EXISTS (
+            SELECT 1
+            FROM transcriptions
+            WHERE transcriptions.chunk_id = chunks.id
+        )
         ORDER BY id ASC
         LIMIT 1
     """, (user_id,)).fetchone()
@@ -331,6 +389,11 @@ def assign_review_task(user_id):
             AND transcriber_id IS NOT NULL
             AND reviewer_id IS NULL
             AND transcriber_id != ?
+            AND EXISTS (
+                SELECT 1
+                FROM transcriptions
+                WHERE transcriptions.chunk_id = chunks.id
+            )
             ORDER BY id ASC
             LIMIT 1
         )

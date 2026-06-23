@@ -334,6 +334,22 @@ def previous_task(cid):
         return jsonify({"error": "no previous chunk"}), 404
 
     return jsonify({"chunk_id": previous_id})
+
+
+@app.route("/task/<int:cid>/no_image", methods=["POST"])
+def mark_no_image(cid):
+
+    uid = session.get("uid")
+
+    if not uid:
+        return jsonify({"error": "login required"}), 401
+
+    try:
+        fn.mark_chunk_no_image(cid, uid)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 403
+
+    return jsonify({"saved": True})
 # =========================
 # ✅ REVIEW TASK
 # =========================

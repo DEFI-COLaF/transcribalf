@@ -63,6 +63,10 @@
             Submit transcription
         </button>
 
+        <button id="noImageBtn" class="btn btn-outline-warning w-100 mt-2" onclick="markNoWordsOnImage()">
+            no words on the image
+        </button>
+
         <button id="previousBtn" class="btn btn-outline-primary w-100 mt-2" onclick="previousChunk()">
             Previous chunk
         </button>
@@ -466,7 +470,7 @@ function collectEntries({allowEmpty = false} = {}) {
 
     if (!allowEmpty && !entries.length) {
         return {
-            error: "Please add at least one complete row, or use Next chunk if there are no words."
+            error: "Please add at least one complete row, or use the no words on the image button."
         };
     }
 
@@ -530,7 +534,40 @@ async function nextChunk() {
         window.location = "{{ url_for('task') }}";
     } else {
         btn.disabled = false;
-        alert("The chunk could not be completed.");
+        alert("The chunk could not be skipped.");
+    }
+}
+
+async function markNoWordsOnImage() {
+    const result = collectEntries({allowEmpty: true});
+
+    if (result.error) {
+        alert(result.error);
+        return;
+    }
+
+    if (result.entries.length) {
+        alert("Remove the transcription rows before marking this image as having no words.");
+        return;
+    }
+
+    const btn = document.getElementById("noImageBtn");
+    btn.disabled = true;
+
+    const response = await fetch("{{ url_for('mark_no_image', cid=t.id) }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken
+        },
+        body: JSON.stringify({})
+    });
+
+    if (response.ok) {
+        window.location = "{{ url_for('task') }}";
+    } else {
+        btn.disabled = false;
+        alert("The chunk could not be marked as having no words.");
     }
 }
 
